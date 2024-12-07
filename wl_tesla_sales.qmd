@@ -1,0 +1,310 @@
+---
+title: "Analyzing Tesla Sales"
+author: "William Lorenzo"
+date: 11/29/2024
+format: 
+  pdf:
+    self-contained: True
+---
+
+## Intro
+
+Tesla is an American electric vehicle and clean energy company founded by Elon Musk. Tesla is highly-known for its electric vehicles, which include the Model 3, Model Y, Model S, Model X, and Cybertruck. These vehicles are renowned for their range, performance, and advanced safety features.
+
+## Objective
+
+I aim to unpack meaningful insights and conduct data-driven decisions, with the intentions of:
+
+- Determining which Tesla models are the most popular based on sales data
+- Evaluate how the value of used Teslas depreciate over time and with mileage
+- Identify which features and specifications are most sought after by buyers
+- Analyze sales performance across different countries and locations to understand preferences
+- Develop visualizations to effectively communicate insights to stakeholders
+- Utilizing data to predict future sales trends
+
+Upon achievement, this analysis will provide valuable insights into the market for used Tesla's, assisting individuals conduct informed decisions on behalf of inventory, pricing, marketing strategies, etc.
+
+## Unpacking Necesarry Packages
+
+```{r}
+library(tidyverse)
+```
+
+#### Unloading file
+
+```{r}
+tesla_df <- read.csv("tesla_used_car_sold-2022-08.csv")
+```
+
+## Summary Statistics
+
+```{r}
+summary(tesla_df)
+```
+
+## Data Cleaning
+
+#### Replacing Blank Placeholder with `NA`
+
+There are missing data that is not marked as `NA`. Continuing the analysis with missing data values may lead to further errors. 
+
+```{r}
+placeholders <- c("")
+
+for (col in names(tesla_df)) {
+  for (placeholder in placeholders) {
+    tesla_df[[col]][tesla_df[[col]] == placeholder] <- NA
+  }
+}
+
+head(tesla_df)
+```
+
+Eliminated rows that have `NA` values.
+
+```{r echo=T, results='hide'}
+is.na(tesla_df)
+sum(is.na(tesla_df))
+```
+
+```{r}
+tesla_df <- na.omit(tesla_df)
+head(tesla_df)
+```
+
+
+#### Checking for duplicates
+
+No duplicates are present within the data.
+
+```{r}
+dup_rows <- duplicated(tesla_df)
+tesla_df[dup_rows, ]
+
+total_dup <- sum(duplicated(tesla_df))
+total_dup
+```
+
+## Used Tesla's ~ California Sales
+
+```{r}
+# Used Tesla Sales in California
+
+tesla_ca <- tesla_df |>
+  filter(state == "CA")
+```
+
+#### Price Variation:
+
+- Lowest sold price is $44,200 on the Model 3 Short Range (17,904 miles) in Gilroy, CA on August 31, 2022.
+
+- Highest sold price is $45,100 on the Model 3 Short Range (35,954 miles) in Lathrop on August 28, 2022.
+
+Price difference between the lowest and highest sold price is $900, which indicates a relatively tight price range for the same trim and within the same metro area.
+
+The sales dates span a short period, suggesting a high turnover rate for this particular model in late August. 
+
+```{r}
+# First 6 rows of Tesla Sales (low to high sold price)
+
+low_high_ca <- tesla_df |>
+  select(location, metro, sold_price, trim, sold_date, miles) |>
+  filter(metro == "Bay Area") |>
+  arrange(sold_price)
+head(low_high_ca)
+```
+
+The Plaid trim catered for Model S is prominently featured among the highest-priced sales, prompting a strong demand and willingness to pay a premium for this high-performance platform.
+
+Despite significant mileage differences, all vehicles fetch high prices, suggesting that the brand and model hold substantial value regardless of usage, though lower mileage vehicles tend to be priced higher.
+
+Purchases based in the Bay Area are likely prioritizing high-end trims and are willing to pay for the latest features and performance capabilities.
+
+```{r}
+# First 6 rows of Tesla Sales (high to low sold price)
+
+high_low_ca <- tesla_df |>
+  select(location, metro, sold_price, trim, sold_date, miles) |>
+  filter(metro == "Bay Area") |>
+  arrange(desc(sold_price))
+head(high_low_ca)
+```
+
+#### Demand:
+
+Selling 162 used Teslas indicates a robust demand for these vehicles in California, a state known for its higher adoption rates of electric vehicles. The total revenue suggests that used Teslas hold substantial market value in this region
+
+Generating over $11 million from used car sales in one state demonstrates Tesla's strong foothold in the secondary market and the brand's popularity. The preference for used Teslas in California highlights consumer trust in the brand and a shift towards sustainable transportation options.
+
+```{r}
+# Calculation of sales & revenue
+
+ca_sales <- tesla_ca |>
+  summarize(total_sales = n(),
+            total_revenue = sum(sold_price, na.rm = T))
+ca_sales
+```
+
+#### Distribution of Sold Prices in California
+
+```{r}
+ggplot(tesla_ca, aes(x = sold_price)) +
+  geom_histogram(binwidth = 5000, fill = "darkred", color = "black") +
+  labs(title = "Distribution of Sold Used Tesla Prices in CA",
+       x = "Sold Price ($)",
+       y = "Count")
+```
+
+## Mileage Analysis:
+
+As years continue down the road, all Tesla models tend to show usage and wear as they are driven frequently. This comprises from physical wear/tear, to increased mileage.
+
+#### Tesla Model 3:
+
+- Units Sold: 752
+
+- Average Mileage of Sold Model 3: 28,956
+
+This particular model has the highest numbers of units sold, illustrating as the most mainstream model for consumers.
+
+#### Tesla Model S:
+
+- Units Sold: 172
+
+- Average Mileage of Sold Model S: 21,537
+
+Model S has fewer units sold compared to Model 3 but shows a lower average mileage.
+
+#### Tesla Model X:
+
+- Units Sold: 193
+
+- Average Mileage of Sold Model X: 33,138
+
+Model X has the highest average mileage among the sold models, suggesting higher usage.
+
+#### Tesla Model Y
+
+- Units Sold: 197
+
+- Average Mileage of Sold Model Y: 19,367
+
+Model Y has the lowest average mileage, indicating these units might be relatively newer or less used.
+
+Model 3 is the most sold model, demonstrating its popularity in the market. Model X has the highest average mileage, suggesting that owners of this model tend to drive more compared to other models. The lower average mileage of Model Y units indicates a preference for new or less used vehicles in this model.
+
+```{r}
+average_mileage <- tesla_df |>
+  group_by(model) |>
+  summarize(
+    count = n(),
+    avg_mileage = mean(miles, na.rm = T)
+  )
+average_mileage
+```
+
+## Visualizing Sold Units by Tesla Model (United States)
+
+```{r}
+ggplot(data = average_mileage, aes(x = model, y = count, fill = model)) +
+  geom_bar(stat = "identity", col = "black") +
+  labs(title = "Number of Units Sold by Tesla Model",
+       x = "Models",
+       y = "Amount of Units Sold",
+       fill = "Model Type:")
+```
+
+## Affect of Sold Price by Mileage
+
+#### Calculation of Correlation Coefficient
+
+Correlation Coefficient: -0.33
+
+Notice, there's a perfect inverse relationship between `miles` and `sold_price`. As mileage increase, the value of that specified model will decrease. Both variables move in opposite direction.
+
+```{r}
+corr <- round(cor(tesla_df$miles, tesla_df$sold_price), 2)
+corr
+```
+
+#### Scatter Plot & Correlation: Mileage & Value
+
+```{r}
+ggplot(data = tesla_df, aes(x = miles, y = sold_price)) +
+  geom_point(color = "navy", size = 2) +
+  geom_smooth(method = "lm", col = "red", se = F) +
+  labs(title = "Correlation Between Mileage and Sold Price",
+       x = "Mileage of sold Tesla Model",
+       y = "Sold Price") +
+  annotate("text", x = max(tesla_df$miles) * 0.7, y = max(tesla_df$sold_price) * 0.9,
+           label = paste("Correlation Coefficient:", round(corr, 2)), color = "black", size = 5)
+```
+
+#### Correlation Matrix
+
+Negative correlation between `year` and `miles` indicates that as cars get newer, they generally have lower mileage.
+
+Positive correlation between `year` and `sold_price` means that newer cars are typically sold at higher prices.
+
+Negative correlation between  `miles` and `sold_price` shows that higher mileage negatively impacts the sold price.
+
+```{r}
+cor_matrix <- cor(tesla_df |> select_if(is.numeric))
+cor_matrix
+```
+
+#### Linear Regression for Mileage and Sold Price
+
+Upon analyzing the p-values, the intercept and the mileage are significant predictors of the sold price. Hence `<2e-16`, indicating p-value as highly significant.
+
+Multiple R-squared is approximately 0.11, while adjusted R-squared is 0.109. Approximately 11% of the variability in `sold_price` is elucidated by the miles driven. Given low percentage, it is still an indication of a significant relationship given the p-value.
+
+```{r}
+model <- lm(sold_price ~ miles, data = tesla_df)
+summary(model)
+```
+
+#### Determining FI (Feature Importance)
+
+Unpacking `randomForest` to proceed with analyzing FI.
+
+```{r}
+library(randomForest)
+```
+
+Features such as `year`, `miles`, `vin`, `model`, and `trim` are among the most influential features, strongly indicating that lower mileage, VINs, model type, and trim levels are key determinants of the sold price.
+
+Variables like `interior`, `wheels`, `sold_date`, and `state` play a less-significant role.
+
+Also, `location`, `metro`, `features`, and `color` have a smaller but still relevant influence on the sold price.
+
+Variables such as `country` and `currency` have no impact.
+
+```{r}
+rf_tesla <- randomForest(sold_price ~ ., data = tesla_df, importance = T)
+importance(rf_tesla)
+```
+
+#### Visualizing FI
+
+```{r}
+fi_df <- as.data.frame(importance(rf_tesla))
+fi_df$Feature <- rownames(fi_df)
+
+ggplot(fi_df, aes(x = reorder(Feature, IncNodePurity), y = IncNodePurity)) + geom_bar(stat = "identity", col = "black", fill = "lightblue") +
+  coord_flip() +
+  labs(title = "Tesla: FI (Feature Importance) Analysis",
+       x = "Feature",
+       y = "Importance (Mean Decrease in Gini)")
+  
+```
+
+## Summary
+
+The Model 3 remains as the most popular model, accounting for a significant portion of the sales. Other models such as the Model S, Model X, and Model Y demonstrate strong market presence, accompanied with varying average mileages and sold prices.
+
+Features like model year, mileage, trim levels, and additional attributes significantly impact the value of Tesla platforms. Newer models and lower mileage cars require higher prices, which aligns with general market expectations. 
+
+Sales data from California suggests a healthy market, associated with a high demand for premium trims and a willingness among buyers to pay a premium for high-performance platforms.
+
+Correlation analysis and linear regression models undeline the influence of variables such as mileage and year on sold prices. The negative correlation between the mileage of a Tesla model and sold price cofirms that higher mileage reduces the platform's resale value. Newer models fetch higher prices.
